@@ -10,20 +10,19 @@ RUN npm ci
 # Copy the rest of the frontend code
 COPY . .
 
+# Recebe a variável de build
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build the project
 RUN npm run build
 
-# Stage 2: Serve with Nginx on port 1247
+# Stage 2: Serve with Nginx
 FROM nginx:alpine
 
-# Copy custom Nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Copy the build output from the builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Expose port 80
 EXPOSE 80
 
-# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
