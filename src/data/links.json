@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "nome": "Receita Federal",
+    "descricao": "Portal e-CAC e consultas",
+    "url": "https://cav.receita.fazenda.gov.br",
+    "icone": "Landmark"
+  },
+  {
+    "id": 2,
+    "nome": "Microsoft 365",
+    "descricao": "Acesso ao pacote Office",
+    "url": "https://www.office.com",
+    "icone": "MonitorPlay"
+  },
+  {
+    "id": 3,
+    "nome": "WhatsApp Web",
+    "descricao": "Comunicação rápida via web",
+    "url": "https://web.whatsapp.com",
+    "icone": "MessageCircle"
+  },
+  {
+    "id": 4,
+    "nome": "Banco de Horas",
+    "descricao": "Controle de ponto online",
+    "url": "https://ponto.empresa.com",
+    "icone": "Clock"
+  },
+  {
+    "id": 5,
+    "nome": "Wiki Interna",
+    "descricao": "Base de conhecimento técnica",
+    "url": "https://wiki.empresa.com",
+    "icone": "BookOpen"
+  },
+  {
+    "id": 6,
+    "nome": "Portal do Colaborador",
+    "descricao": "Holerites e benefícios",
+    "url": "https://colaborador.empresa.com",
+    "icone": "UserCircle"
+  }
+]

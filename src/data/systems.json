@@ -1,0 +1,58 @@
+[
+  {
+    "id": 1,
+    "nome": "ERP",
+    "descricao": "Sistema de gestão empresarial",
+    "icone": "Building",
+    "url": "https://erp.empresa.com"
+  },
+  {
+    "id": 2,
+    "nome": "Help Desk",
+    "descricao": "Central de suporte e chamados",
+    "icone": "Headset",
+    "url": "https://helpdesk.empresa.com"
+  },
+  {
+    "id": 3,
+    "nome": "Financeiro",
+    "descricao": "Controle financeiro e relatórios",
+    "icone": "DollarSign",
+    "url": "https://financeiro.empresa.com"
+  },
+  {
+    "id": 4,
+    "nome": "RH",
+    "descricao": "Portal de Recursos Humanos",
+    "icone": "Users",
+    "url": "https://rh.empresa.com"
+  },
+  {
+    "id": 5,
+    "nome": "Monitoramento",
+    "descricao": "Dashboards de infraestrutura",
+    "icone": "Activity",
+    "url": "https://monitoramento.empresa.com"
+  },
+  {
+    "id": 6,
+    "nome": "Controle de Tarefas",
+    "descricao": "Gerenciamento de projetos",
+    "icone": "CheckSquare",
+    "url": "https://tarefas.empresa.com"
+  },
+  {
+    "id": 7,
+    "nome": "Sistema Fiscal",
+    "descricao": "Gestão de notas fiscais",
+    "icone": "FileText",
+    "url": "https://fiscal.empresa.com"
+  },
+  {
+    "id": 8,
+    "nome": "CRM",
+    "descricao": "Relacionamento com clientes",
+    "icone": "PieChart",
+    "url": "https://crm.empresa.com"
+  }
+]
