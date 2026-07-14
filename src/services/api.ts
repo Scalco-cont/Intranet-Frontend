@@ -18,6 +18,8 @@ export interface LinkUtil {
   icone: string;
   ativo: boolean;
   ordem_exibicao: number;
+  /** Campo local (frontend-only): tags gerenciadas pelo admin via localStorage */
+  tags?: string[];
 }
 
 export interface Comunicado {
@@ -118,6 +120,30 @@ export const deleteLink = (id: number, token: string): Promise<void> =>
     headers: { Authorization: `Bearer ${token}` },
   });
 
+/**
+ * Salva a nova ordem de exibição dos links no backend.
+ * Recebe o array de links já na ordem desejada.
+ */
+export const reorderLinks = async (orderedLinks: LinkUtil[], token: string): Promise<void> => {
+  await Promise.all(
+    orderedLinks.map((link, index) =>
+      updateLink(link.id, { ordem_exibicao: index }, token)
+    )
+  );
+};
+
+/**
+ * Salva a nova ordem de exibição dos sistemas no backend.
+ * Recebe o array de sistemas já na ordem desejada.
+ */
+export const reorderSistemas = async (orderedSistemas: Sistema[], token: string): Promise<void> => {
+  await Promise.all(
+    orderedSistemas.map((sistema, index) =>
+      updateSistema(sistema.id, { ordem_exibicao: index }, token)
+    )
+  );
+};
+
 // ─── Comunicados ───────────────────────────────────────────────────────────
 
 export const getComunicados = (): Promise<Comunicado[]> =>
@@ -205,10 +231,23 @@ export const updateUsuario = (id: number, data: Partial<{ nome: string; email: s
   });
 
 export const checkUrl = async (url: string): Promise<{ isUp: boolean }> => {
+  const controller = new AbortController();
+  // 15 segundos de timeout — sites externos/governamentais podem demorar para responder
+  const timer = setTimeout(() => controller.abort(), 15000);
+
   try {
-    await fetch(url, { mode: 'no-cors', cache: 'no-store' });
+    await fetch(url, { mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+    clearTimeout(timer);
     return { isUp: true };
   } catch (error) {
+    clearTimeout(timer);
+    // Se o timeout foi atingido (AbortError), o site existe mas não respondeu
+    // ao fetch automático — pode ser bloqueio de CORS/firewall do servidor.
+    // Abrimos o link mesmo assim, pois o usuário consegue acessar pelo browser.
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return { isUp: true };
+    }
+    // Qualquer outro erro de rede (DNS falhou, conexão recusada, etc.)
     return { isUp: false };
   }
 };

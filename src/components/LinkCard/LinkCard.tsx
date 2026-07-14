@@ -10,9 +10,27 @@ interface LinkCardProps {
   descricao: string;
   url: string;
   icone: string;
+  /** Tags opcionais gerenciadas pelo admin */
+  tags?: string[];
 }
 
-export function LinkCard({ id, nome, descricao, url, icone }: LinkCardProps) {
+// Paleta de cores para badges de tags
+const TAG_COLORS = [
+  'bg-blue-100 text-blue-700',
+  'bg-green-100 text-green-700',
+  'bg-purple-100 text-purple-700',
+  'bg-orange-100 text-orange-700',
+  'bg-pink-100 text-pink-700',
+  'bg-teal-100 text-teal-700',
+];
+
+function tagColor(tag: string) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+}
+
+export function LinkCard({ id, nome, descricao, url, icone, tags }: LinkCardProps) {
   const { isFavorite, addFavorite, removeFavorite } = useFavoritesStore();
   const [isChecking, setIsChecking] = useState(false);
   const [showMaintenance, setShowMaintenance] = useState(false);
@@ -116,6 +134,7 @@ export function LinkCard({ id, nome, descricao, url, icone }: LinkCardProps) {
 
   const toggleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (favorite) {
       removeFavorite(linkId);
     } else {
@@ -123,14 +142,16 @@ export function LinkCard({ id, nome, descricao, url, icone }: LinkCardProps) {
     }
   };
 
+  const hasTags = tags && tags.length > 0;
+
   return (
     <>
       <a
         href={url}
         onClick={handleClick}
-        className="group bg-white rounded-xl p-4 border border-gray-100 card-hover flex items-center gap-4"
+        className="group bg-white rounded-xl p-4 border border-gray-100 card-hover flex items-start gap-4"
       >
-        <div className="bg-accent/10 text-accent p-2.5 rounded-lg group-hover:bg-accent group-hover:text-white transition-colors duration-300">
+        <div className="bg-accent/10 text-accent p-2.5 rounded-lg group-hover:bg-accent group-hover:text-white transition-colors duration-300 shrink-0 mt-0.5">
           <IconComponent size={20} />
         </div>
         
@@ -140,13 +161,26 @@ export function LinkCard({ id, nome, descricao, url, icone }: LinkCardProps) {
             {isChecking && <LucideIcons.Loader2 size={12} className="animate-spin text-gray-400" />}
           </h4>
           <p className="text-xs text-gray-500 truncate">{descricao}</p>
+          {hasTags && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {tags!.map((tag) => (
+                <span
+                  key={tag}
+                  className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${tagColor(tag)}`}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <button
           onClick={toggleFavorite}
-          className={`p-1.5 rounded-full transition-colors opacity-0 group-hover:opacity-100 md:opacity-100 ${
+          className={`p-1.5 rounded-full transition-colors opacity-0 group-hover:opacity-100 md:opacity-100 shrink-0 ${
             favorite ? 'text-yellow-400 bg-yellow-50 opacity-100' : 'text-gray-300 hover:text-yellow-400 hover:bg-gray-50'
           }`}
+          title={favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
         >
           <LucideIcons.Star size={16} className={favorite ? 'fill-current' : ''} />
         </button>

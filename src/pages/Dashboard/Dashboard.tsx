@@ -6,6 +6,7 @@ import { LoadingSpinner } from '../../components/LoadingSpinner/LoadingSpinner';
 import { ErrorState } from '../../components/ErrorState/ErrorState';
 import { type Sistema, type LinkUtil, type Comunicado } from '../../services/api';
 import { useFavoritesStore } from '../../store/useFavoritesStore';
+import { useLinksTagsStore } from '../../store/useLinksTagsStore';
 
 interface DashboardProps {
   sistemas: Sistema[];
@@ -22,21 +23,44 @@ export function Dashboard({
 }: DashboardProps) {
   const [greeting, setGreeting] = useState('');
   const [currentDate, setCurrentDate] = useState('');
-  const { isFavorite } = useFavoritesStore();
+  const [activeTag, setActiveTag] = useState<string | null>(null);
 
+  const { isFavorite } = useFavoritesStore();
+  const { getTagsForLink, getAllTags } = useLinksTagsStore();
+
+  // Ordem: backend (ordem_exibicao) → favoritos do usuário sobem para o topo (local)
   const sistemasSorted = useMemo(
-    () => [...sistemas].sort((a, b) =>
-      (isFavorite(`system-${b.id}`) ? 1 : 0) - (isFavorite(`system-${a.id}`) ? 1 : 0)
-    ),
+    () =>
+      [...sistemas].sort((a, b) => {
+        const aFav = isFavorite(`system-${a.id}`) ? 0 : 1;
+        const bFav = isFavorite(`system-${b.id}`) ? 0 : 1;
+        if (aFav !== bFav) return aFav - bFav;
+        // Mantém ordem_exibicao do admin como critério de desempate
+        return a.ordem_exibicao - b.ordem_exibicao;
+      }),
     [sistemas, isFavorite]
   );
 
   const linksSorted = useMemo(
-    () => [...links].sort((a, b) =>
-      (isFavorite(`link-${b.id}`) ? 1 : 0) - (isFavorite(`link-${a.id}`) ? 1 : 0)
-    ),
+    () =>
+      [...links].sort((a, b) => {
+        const aFav = isFavorite(`link-${a.id}`) ? 0 : 1;
+        const bFav = isFavorite(`link-${b.id}`) ? 0 : 1;
+        if (aFav !== bFav) return aFav - bFav;
+        // Mantém ordem_exibicao do admin como critério de desempate
+        return a.ordem_exibicao - b.ordem_exibicao;
+      }),
     [links, isFavorite]
   );
+
+  // Todas as tags disponíveis (para a barra de filtro)
+  const allTags = useMemo(() => getAllTags(), [getAllTags, links]);
+
+  // Links filtrados por tag (se nenhuma tag ativa, mostra todos)
+  const linksFiltered = useMemo(() => {
+    if (!activeTag) return linksSorted;
+    return linksSorted.filter((l) => getTagsForLink(l.id).includes(activeTag));
+  }, [linksSorted, activeTag, getTagsForLink]);
 
   useEffect(() => {
     const update = () => {
@@ -90,15 +114,55 @@ export function Dashboard({
 
           {/* ── Coluna 2: Links Úteis (25%) ──────────────────────── */}
           <section className="w-full lg:w-[25%] min-w-0 bg-gray-50 rounded-2xl p-5 border border-gray-100">
-            <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
               <span className="w-1 h-5 bg-accent rounded-full" />
               Links Úteis
             </h2>
-            {linksSorted.length === 0 ? (
-              <p className="text-sm text-gray-400">Nenhum link cadastrado.</p>
+
+            {/* Barra de filtro por etiquetas */}
+            {allTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <button
+                  onClick={() => setActiveTag(null)}
+                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
+                    activeTag === null
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-400 hover:text-gray-700'
+                  }`}
+                >
+                  Todas
+                </button>
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors capitalize ${
+                      activeTag === tag
+                        ? 'bg-accent text-white'
+                        : 'bg-white text-gray-500 border border-gray-200 hover:border-accent hover:text-accent'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {linksFiltered.length === 0 ? (
+              <p className="text-sm text-gray-400">
+                {activeTag
+                  ? `Nenhum link com a etiqueta "${activeTag}".`
+                  : 'Nenhum link cadastrado.'}
+              </p>
             ) : (
               <div className="flex flex-col gap-2.5">
-                {linksSorted.map((l) => <LinkCard key={l.id} {...l} />)}
+                {linksFiltered.map((l) => (
+                  <LinkCard
+                    key={l.id}
+                    {...l}
+                    tags={getTagsForLink(l.id)}
+                  />
+                ))}
               </div>
             )}
           </section>

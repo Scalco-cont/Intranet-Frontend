@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Pencil, Trash2, Save, AlertCircle } from 'lucide-react';
+import { X, Plus, Pencil, Trash2, Save, AlertCircle, ChevronUp, ChevronDown, Tag } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useLinksTagsStore } from '../../store/useLinksTagsStore';
 import {
   getSistemas, getLinks,
-  createSistema, updateSistema, deleteSistema,
-  createLink, updateLink, deleteLink,
+  createSistema, updateSistema, deleteSistema, reorderSistemas,
+  createLink, updateLink, deleteLink, reorderLinks,
   getUsuarios, updateUsuario, type Sistema, type LinkUtil, type Usuario,
 } from '../../services/api';
 
@@ -20,12 +21,18 @@ const EMPTY_LINK = { nome: '', descricao: '', icone: 'Link', url: '' };
 
 export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
   const { token, usuario, logout } = useAuthStore();
+  const { getTagsForLink, setTagsForLink } = useLinksTagsStore();
+
   const [activeTab, setActiveTab] = useState<Tab>('sistemas');
   const [items, setItems] = useState<any[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [formTags, setFormTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [orderChanged, setOrderChanged] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,6 +41,7 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
 
   const loadData = async () => {
     setLoading(true);
+    setOrderChanged(false);
     try {
       if (activeTab === 'sistemas') {
         const data = await getSistemas();
@@ -56,6 +64,8 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
 
   const openNew = () => {
     setFormData(isEditingSistema ? { ...EMPTY_SISTEMA } : { ...EMPTY_LINK });
+    setFormTags([]);
+    setTagInput('');
     setEditingId('new');
     setError(null);
   };
@@ -67,6 +77,13 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
       icone: item.icone,
       url: item.url,
     });
+    // Carrega as tags atuais do link (somente para links)
+    if (!isEditingSistema) {
+      setFormTags(getTagsForLink(item.id));
+    } else {
+      setFormTags([]);
+    }
+    setTagInput('');
     setEditingId(item.id);
     setError(null);
   };
@@ -74,20 +91,62 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
   const cancelEdit = () => {
     setEditingId(null);
     setFormData({});
+    setFormTags([]);
+    setTagInput('');
     setError(null);
   };
+
+  // ── Gerenciamento de tags no formulário ──────────────────────────────────
+
+  const handleAddTag = () => {
+    const t = tagInput.trim().toLowerCase();
+    if (t && !formTags.includes(t)) {
+      setFormTags((prev) => [...prev, t]);
+    }
+    setTagInput('');
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      handleAddTag();
+    } else if (e.key === 'Backspace' && tagInput === '' && formTags.length > 0) {
+      setFormTags((prev) => prev.slice(0, -1));
+    }
+  };
+
+  const removeFormTag = (tag: string) => {
+    setFormTags((prev) => prev.filter((t) => t !== tag));
+  };
+
+  // ── Salvar item ─────────────────────────────────────────────────────────
 
   const handleSave = async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
+      let savedId: number | undefined;
       if (isEditingSistema) {
-        if (editingId === 'new') await createSistema(formData as any, token);
-        else await updateSistema(editingId as number, formData, token);
+        if (editingId === 'new') {
+          const created = await createSistema(formData as any, token);
+          savedId = created.id;
+        } else {
+          await updateSistema(editingId as number, formData, token);
+          savedId = editingId as number;
+        }
       } else {
-        if (editingId === 'new') await createLink(formData as any, token);
-        else await updateLink(editingId as number, formData, token);
+        if (editingId === 'new') {
+          const created = await createLink(formData as any, token);
+          savedId = created.id;
+        } else {
+          await updateLink(editingId as number, formData, token);
+          savedId = editingId as number;
+        }
+        // Salva as tags no localStorage (somente para links)
+        if (savedId !== undefined) {
+          setTagsForLink(savedId, formTags);
+        }
       }
       cancelEdit();
       loadData();
@@ -114,10 +173,41 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
     }
   };
 
+  // ── Reordenação ─────────────────────────────────────────────────────────
+
+  const moveItem = (index: number, direction: 'up' | 'down') => {
+    const newItems = [...items];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newItems.length) return;
+    [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
+    setItems(newItems);
+    setOrderChanged(true);
+  };
+
+  const handleSaveOrder = async () => {
+    if (!token) return;
+    setSavingOrder(true);
+    setError(null);
+    try {
+      if (isEditingSistema) {
+        await reorderSistemas(items as Sistema[], token);
+      } else {
+        await reorderLinks(items as LinkUtil[], token);
+      }
+      setOrderChanged(false);
+      onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar a ordem.');
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col animate-fade-in overflow-hidden">
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Painel de Administração</h2>
@@ -136,6 +226,7 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
           </div>
         </div>
 
+        {/* Tabs */}
         <div className="flex border-b border-gray-100 px-6 pt-3 gap-4">
           {(['sistemas', 'links', 'usuarios'] as Tab[]).map((t) => (
             <button
@@ -150,6 +241,7 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
           ))}
         </div>
 
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
           {error && (
             <div className="flex items-center gap-2 bg-red-50 text-red-600 text-sm rounded-xl px-4 py-3">
@@ -159,17 +251,29 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
           )}
 
           {activeTab !== 'usuarios' && (
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-2">
               <h3 className="text-sm font-bold text-gray-900 capitalize">
                 Gerenciar {activeTab}
               </h3>
-              <button
-                onClick={() => openNew()}
-                className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
-              >
-                <Plus size={16} />
-                Adicionar
-              </button>
+              <div className="flex items-center gap-2">
+                {orderChanged && (
+                  <button
+                    onClick={handleSaveOrder}
+                    disabled={savingOrder}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-xs font-semibold hover:bg-emerald-600 transition-colors disabled:opacity-60"
+                  >
+                    <Save size={13} />
+                    {savingOrder ? 'Salvando...' : 'Salvar Ordem'}
+                  </button>
+                )}
+                <button
+                  onClick={openNew}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  <Plus size={16} />
+                  Adicionar
+                </button>
+              </div>
             </div>
           )}
 
@@ -192,6 +296,43 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
                 </div>
               ))}
 
+              {/* Campo de Etiquetas — somente para links */}
+              {!isEditingSistema && (
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 mb-1">
+                    <Tag size={12} />
+                    Etiquetas <span className="text-gray-400 font-normal">(opcional)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-xl bg-white min-h-[42px] focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary">
+                    {formTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => removeFormTag(tag)}
+                          className="text-blue-500 hover:text-blue-800 transition-colors"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={handleTagKeyDown}
+                      onBlur={handleAddTag}
+                      placeholder={formTags.length === 0 ? 'Digite e pressione Enter...' : ''}
+                      className="flex-1 min-w-[120px] text-sm outline-none bg-transparent"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">Pressione Enter ou vírgula para adicionar uma etiqueta.</p>
+                </div>
+              )}
+
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={handleSave}
@@ -212,16 +353,57 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
           )}
 
           {/* Items List */}
-          {activeTab !== 'usuarios' && items.map((item) => (
+          {activeTab !== 'usuarios' && items.map((item, index) => (
             <div
               key={item.id}
-              className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3 hover:border-gray-200 transition-colors"
+              className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-3 py-3 hover:border-gray-200 transition-colors"
             >
-              <div className="min-w-0">
+              {/* Controles de Ordem */}
+              <div className="flex flex-col gap-0.5 shrink-0">
+                <button
+                  onClick={() => moveItem(index, 'up')}
+                  disabled={index === 0}
+                  className="p-1 text-gray-300 hover:text-primary hover:bg-blue-50 rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                  title="Mover para cima"
+                >
+                  <ChevronUp size={14} />
+                </button>
+                <button
+                  onClick={() => moveItem(index, 'down')}
+                  disabled={index === items.length - 1}
+                  className="p-1 text-gray-300 hover:text-primary hover:bg-blue-50 rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                  title="Mover para baixo"
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+
+              {/* Número de posição */}
+              <span className="text-xs font-bold text-gray-300 w-5 text-center shrink-0">
+                {index + 1}
+              </span>
+
+              {/* Informações do item */}
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">{item.nome}</p>
                 <p className="text-xs text-gray-400 truncate">{item.url}</p>
+                {/* Tags do link (somente na aba links) */}
+                {activeTab === 'links' && (() => {
+                  const tags = getTagsForLink(item.id);
+                  return tags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {tags.map((tag: string) => (
+                        <span key={tag} className="text-[10px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
               </div>
-              <div className="flex items-center gap-1 shrink-0 ml-3">
+
+              {/* Ações */}
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => openEdit(item)}
                   className="p-2 text-gray-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
@@ -239,6 +421,14 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
               </div>
             </div>
           ))}
+
+          {/* Aviso de ordem não salva */}
+          {orderChanged && activeTab !== 'usuarios' && editingId === null && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-xl px-4 py-3">
+              <AlertCircle size={14} />
+              Ordem alterada. Clique em <strong>Salvar Ordem</strong> para persistir as mudanças.
+            </div>
+          )}
 
           {/* Users List */}
           {activeTab === 'usuarios' && (
