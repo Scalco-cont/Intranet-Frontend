@@ -1,3 +1,5 @@
+import { useAuthStore } from '../store/useAuthStore';
+
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export interface Sistema {
@@ -63,6 +65,11 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T>
   });
 
   if (!response.ok) {
+    // Token expirado ou inválido: faz logout automático e avisa o usuário
+    if (response.status === 401) {
+      useAuthStore.getState().logout();
+      throw new Error('Sessão expirada. Por favor, faça login novamente.');
+    }
     const error = await response.json().catch(() => ({ message: 'Erro desconhecido.' }));
     throw new Error(error.message || `Erro ${response.status}`);
   }
@@ -197,6 +204,7 @@ export const deleteComentario = (comunicadoId: number, comentarioId: number, tok
 export const reagir = (comunicadoId: number, emoji: string, cliente_id: string): Promise<{ reacoes: Record<string, number> }> =>
   fetchJson(`/comunicados/${comunicadoId}/reacoes`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ emoji, cliente_id }),
   });
 
