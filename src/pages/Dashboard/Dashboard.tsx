@@ -6,7 +6,6 @@ import { LoadingSpinner } from '../../components/LoadingSpinner/LoadingSpinner';
 import { ErrorState } from '../../components/ErrorState/ErrorState';
 import { type Sistema, type LinkUtil, type Comunicado } from '../../services/api';
 import { useFavoritesStore } from '../../store/useFavoritesStore';
-import { useLinksTagsStore } from '../../store/useLinksTagsStore';
 
 interface DashboardProps {
   sistemas: Sistema[];
@@ -26,16 +25,15 @@ export function Dashboard({
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
   const { isFavorite } = useFavoritesStore();
-  const { getTagsForLink, getAllTags } = useLinksTagsStore();
 
-  // Ordem: backend (ordem_exibicao) → favoritos do usuário sobem para o topo (local)
+  // Ordem base: admin define via ordem_exibicao (backend)
+  // Favoritos do usuário sobem para o topo — apenas localmente (no PC dele)
   const sistemasSorted = useMemo(
     () =>
       [...sistemas].sort((a, b) => {
         const aFav = isFavorite(`system-${a.id}`) ? 0 : 1;
         const bFav = isFavorite(`system-${b.id}`) ? 0 : 1;
         if (aFav !== bFav) return aFav - bFav;
-        // Mantém ordem_exibicao do admin como critério de desempate
         return a.ordem_exibicao - b.ordem_exibicao;
       }),
     [sistemas, isFavorite]
@@ -47,20 +45,22 @@ export function Dashboard({
         const aFav = isFavorite(`link-${a.id}`) ? 0 : 1;
         const bFav = isFavorite(`link-${b.id}`) ? 0 : 1;
         if (aFav !== bFav) return aFav - bFav;
-        // Mantém ordem_exibicao do admin como critério de desempate
         return a.ordem_exibicao - b.ordem_exibicao;
       }),
     [links, isFavorite]
   );
 
-  // Todas as tags disponíveis (para a barra de filtro)
-  const allTags = useMemo(() => getAllTags(), [getAllTags, links]);
+  // Tags únicas disponíveis — extraídas diretamente dos dados da API (banco de dados)
+  const allTags = useMemo(() => {
+    const tags = links.flatMap((l) => l.tags ?? []);
+    return [...new Set(tags)].sort();
+  }, [links]);
 
-  // Links filtrados por tag (se nenhuma tag ativa, mostra todos)
+  // Links filtrados por tag selecionada
   const linksFiltered = useMemo(() => {
     if (!activeTag) return linksSorted;
-    return linksSorted.filter((l) => getTagsForLink(l.id).includes(activeTag));
-  }, [linksSorted, activeTag, getTagsForLink]);
+    return linksSorted.filter((l) => (l.tags ?? []).includes(activeTag));
+  }, [linksSorted, activeTag]);
 
   useEffect(() => {
     const update = () => {
@@ -119,7 +119,7 @@ export function Dashboard({
               Links Úteis
             </h2>
 
-            {/* Barra de filtro por etiquetas */}
+            {/* Filtro por etiquetas — visível a todos, tags vêm do banco */}
             {allTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-3">
                 <button
@@ -160,7 +160,6 @@ export function Dashboard({
                   <LinkCard
                     key={l.id}
                     {...l}
-                    tags={getTagsForLink(l.id)}
                   />
                 ))}
               </div>

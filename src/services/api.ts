@@ -20,8 +20,8 @@ export interface LinkUtil {
   icone: string;
   ativo: boolean;
   ordem_exibicao: number;
-  /** Campo local (frontend-only): tags gerenciadas pelo admin via localStorage */
-  tags?: string[];
+  /** Tags gerenciadas pelo admin, persistidas no banco de dados */
+  tags: string[];
 }
 
 export interface Comunicado {

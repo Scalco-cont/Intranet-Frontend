@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Pencil, Trash2, Save, AlertCircle, ChevronUp, ChevronDown, Tag } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useLinksTagsStore } from '../../store/useLinksTagsStore';
 import {
   getSistemas, getLinks,
   createSistema, updateSistema, deleteSistema, reorderSistemas,
@@ -21,13 +20,13 @@ const EMPTY_LINK = { nome: '', descricao: '', icone: 'Link', url: '' };
 
 export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
   const { token, usuario, logout } = useAuthStore();
-  const { getTagsForLink, setTagsForLink } = useLinksTagsStore();
 
   const [activeTab, setActiveTab] = useState<Tab>('sistemas');
   const [items, setItems] = useState<any[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  // Tags do formulário — enviadas ao backend ao salvar
   const [formTags, setFormTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -77,9 +76,9 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
       icone: item.icone,
       url: item.url,
     });
-    // Carrega as tags atuais do link (somente para links)
+    // Carrega as tags do item (somente para links — vêm do backend)
     if (!isEditingSistema) {
-      setFormTags(getTagsForLink(item.id));
+      setFormTags((item as LinkUtil).tags ?? []);
     } else {
       setFormTags([]);
     }
@@ -119,34 +118,21 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
     setFormTags((prev) => prev.filter((t) => t !== tag));
   };
 
-  // ── Salvar item ─────────────────────────────────────────────────────────
+  // ── Salvar item — tags vão junto ao backend ──────────────────────────────
 
   const handleSave = async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      let savedId: number | undefined;
       if (isEditingSistema) {
-        if (editingId === 'new') {
-          const created = await createSistema(formData as any, token);
-          savedId = created.id;
-        } else {
-          await updateSistema(editingId as number, formData, token);
-          savedId = editingId as number;
-        }
+        if (editingId === 'new') await createSistema(formData as any, token);
+        else await updateSistema(editingId as number, formData, token);
       } else {
-        if (editingId === 'new') {
-          const created = await createLink(formData as any, token);
-          savedId = created.id;
-        } else {
-          await updateLink(editingId as number, formData, token);
-          savedId = editingId as number;
-        }
-        // Salva as tags no localStorage (somente para links)
-        if (savedId !== undefined) {
-          setTagsForLink(savedId, formTags);
-        }
+        // Para links, inclui as tags no payload enviado ao backend
+        const payload = { ...formData, tags: formTags };
+        if (editingId === 'new') await createLink(payload as any, token);
+        else await updateLink(editingId as number, payload, token);
       }
       cancelEdit();
       loadData();
@@ -296,12 +282,12 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
                 </div>
               ))}
 
-              {/* Campo de Etiquetas — somente para links */}
+              {/* Campo de Etiquetas — somente para links, salvas no banco */}
               {!isEditingSistema && (
                 <div>
                   <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 mb-1">
                     <Tag size={12} />
-                    Etiquetas <span className="text-gray-400 font-normal">(opcional)</span>
+                    Etiquetas <span className="text-gray-400 font-normal">(opcional — salvas no banco)</span>
                   </label>
                   <div className="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-xl bg-white min-h-[42px] focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary">
                     {formTags.map((tag) => (
@@ -329,7 +315,9 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
                       className="flex-1 min-w-[120px] text-sm outline-none bg-transparent"
                     />
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Pressione Enter ou vírgula para adicionar uma etiqueta.</p>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Pressione Enter ou vírgula para adicionar. Visível para todos os usuários após salvar.
+                  </p>
                 </div>
               )}
 
@@ -387,19 +375,16 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">{item.nome}</p>
                 <p className="text-xs text-gray-400 truncate">{item.url}</p>
-                {/* Tags do link (somente na aba links) */}
-                {activeTab === 'links' && (() => {
-                  const tags = getTagsForLink(item.id);
-                  return tags.length > 0 ? (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {tags.map((tag: string) => (
-                        <span key={tag} className="text-[10px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null;
-                })()}
+                {/* Tags do link (vêm do banco de dados) */}
+                {activeTab === 'links' && item.tags && item.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {item.tags.map((tag: string) => (
+                      <span key={tag} className="text-[10px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Ações */}
@@ -426,7 +411,7 @@ export function AdminPanel({ onClose, onRefresh }: AdminPanelProps) {
           {orderChanged && activeTab !== 'usuarios' && editingId === null && (
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-xl px-4 py-3">
               <AlertCircle size={14} />
-              Ordem alterada. Clique em <strong>Salvar Ordem</strong> para persistir as mudanças.
+              Ordem alterada. Clique em <strong>Salvar Ordem</strong> para aplicar a todos os usuários.
             </div>
           )}
 
