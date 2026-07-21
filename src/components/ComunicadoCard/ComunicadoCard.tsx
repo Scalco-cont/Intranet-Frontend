@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pin, Pencil, Trash2, ChevronDown, ChevronUp, Send, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { sanitizeHtml } from '../../utils/sanitize';
 import {
   reagir, getComentarios, createComentario, deleteComentario,
   fixarComunicado, deleteComunicado,
@@ -178,9 +179,9 @@ export function ComunicadoCard({ comunicado, onRefresh, onEdit }: ComunicadoCard
 
         {/* Conteúdo */}
         <h3 className={`font-bold mb-1.5 leading-snug ${styleConfig.title}`}>{comunicado.titulo}</h3>
-        <div 
+        <div
           className={`text-sm leading-relaxed prose prose-sm max-w-none ${styleConfig.text}`}
-          dangerouslySetInnerHTML={{ __html: comunicado.conteudo }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(comunicado.conteudo) }}
         />
 
         {/* Reações */}
