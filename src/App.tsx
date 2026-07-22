@@ -47,12 +47,17 @@ function App() {
     setPaginaArquivos(true);
   };
 
+  const voltarInicio = () => {
+    window.history.pushState({}, '', '/');
+    setPaginaArquivos(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       <Header onRefresh={refetch} onAbrirArquivosDoCurso={abrirArquivosDoCurso} />
       <main className="flex-grow">
         {paginaArquivos ? (
-          <ArquivosDoCurso />
+          <ArquivosDoCurso onVoltarInicio={voltarInicio} />
         ) : (
           <Dashboard
             sistemas={sistemas}

@@ -50,7 +50,7 @@ export function Header({ onRefresh, onAbrirArquivosDoCurso }: HeaderProps) {
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-primary hover:bg-blue-50 transition-colors"
             >
               <Folder size={18} />
-              <span className="hidden sm:block">Arquivos do curso</span>
+              <span className="hidden sm:block">Biblioteca de Cursos</span>
             </button>
 
             {/* User avatar + dropdown */}

@@ -83,7 +83,7 @@ export function PdfViewer({ url, nome, onClose }: PdfViewerProps) {
   return (
     <div
       onContextMenu={(e) => e.preventDefault()}
-      className="fixed inset-0 z-50 bg-gray-900/95 flex flex-col print:hidden"
+      className="fixed inset-0 z-50 bg-gray-700 flex flex-col print:hidden"
     >
       <div className="flex items-center justify-between px-4 h-14 bg-white border-b border-gray-200">
         <span className="text-sm font-semibold text-gray-900 truncate">{nome}</span>
