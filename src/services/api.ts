@@ -259,3 +259,44 @@ export const checkUrl = async (url: string): Promise<{ isUp: boolean }> => {
     return { isUp: false };
   }
 };
+
+// ─── Arquivos do curso ───────────────────────────────────────────────────────
+
+export interface ItemArquivo {
+  token: string;
+  nome: string;
+  tipo: 'pasta' | 'pdf';
+  modificado_em: string | null;
+}
+
+export interface CrumbArquivo {
+  token: string | null;
+  nome: string;
+}
+
+export interface RespostaListagem {
+  caminho: CrumbArquivo[];
+  itens: ItemArquivo[];
+}
+
+export class ErroArquivos extends Error {
+  codigo: string;
+
+  constructor(codigo: string, message: string) {
+    super(message);
+    this.codigo = codigo;
+  }
+}
+
+export const listarArquivos = async (pasta?: string): Promise<RespostaListagem> => {
+  const query = pasta ? `?pasta=${encodeURIComponent(pasta)}` : '';
+  const response = await fetch(`${API_BASE_URL}/arquivos-do-curso/listar${query}`);
+  const corpo = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new ErroArquivos(corpo.error || 'erro_desconhecido', corpo.message || `Erro ${response.status}`);
+  }
+  return corpo;
+};
+
+export const arquivoUrl = (token: string): string =>
+  `${API_BASE_URL}/arquivos-do-curso/arquivo/${encodeURIComponent(token)}`;
