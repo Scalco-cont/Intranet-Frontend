@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, ShieldCheck, LogOut, Settings, Pencil } from 'lucide-react';
+import { User, ShieldCheck, LogOut, Settings, Pencil, Folder } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { LoginModal } from '../LoginModal/LoginModal';
 import { AdminPanel } from '../AdminPanel/AdminPanel';
@@ -7,9 +7,10 @@ import { AdminPanel } from '../AdminPanel/AdminPanel';
 
 interface HeaderProps {
   onRefresh: () => void;
+  onAbrirArquivosDoCurso: () => void;
 }
 
-export function Header({ onRefresh }: HeaderProps) {
+export function Header({ onRefresh, onAbrirArquivosDoCurso }: HeaderProps) {
   const { isAuthenticated, isAdmin, isEditor, usuario, logout } = useAuthStore();
   const [showLogin, setShowLogin] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -43,6 +44,14 @@ export function Header({ onRefresh }: HeaderProps) {
 
           {/* Right side */}
           <div className="flex items-center gap-3">
+
+            <button
+              onClick={onAbrirArquivosDoCurso}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-primary hover:bg-blue-50 transition-colors"
+            >
+              <Folder size={18} />
+              <span className="hidden sm:block">Arquivos do curso</span>
+            </button>
 
             {/* User avatar + dropdown */}
             <div className="relative" ref={dropdownRef}>
